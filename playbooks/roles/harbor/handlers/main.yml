@@ -1,0 +1,13 @@
+- name: Restart Docker service
+  service:
+    name: docker
+    state: restarted
+  become: true
+
+- name: Restart Harbor
+  shell: |
+    docker compose down -v || true
+    docker compose up -d
+  args:
+    chdir: "{{ harbor_install_path }}"
+  become: true

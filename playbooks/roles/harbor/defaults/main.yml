@@ -1,0 +1,6 @@
+harbor_version: "2.11.2"
+harbor_host: "harbor.bettercallsouf.local"
+harbor_install_path: "/opt/harbor"
+harbor_cert_path: "/data/certs"
+harbor_tls_enabled: true
+harbor_admin_password: "Harbor12345"

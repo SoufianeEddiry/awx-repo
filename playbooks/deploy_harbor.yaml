@@ -1,0 +1,13 @@
+---
+- name: Deploy Harbor
+  hosts: harbor-srv-01
+  become: true
+  vars:
+    harbor_version: "2.10.0"
+    harbor_host: "harbor.bettercallsouf.local"
+    harbor_install_path: "/opt/harbor"
+    harbor_cert_path: "/data/certs"
+    harbor_tls_enabled: true
+    harbor_admin_password: "Harbor12345"
+  roles:
+    - harbor

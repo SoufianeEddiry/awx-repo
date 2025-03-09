@@ -1,0 +1,90 @@
+- name: Install Docker
+  shell: curl -sSL https://get.docker.com | sh
+  args:
+    creates: /usr/bin/docker
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  become: true
+
+- name: Reset connection so docker group is picked up.
+  meta: reset_connection
+
+- name: Download Harbor Offline Installer
+  get_url:
+    url: "https://github.com/goharbor/harbor/releases/download/v{{ harbor_version }}/harbor-offline-installer-v{{ harbor_version }}.tgz"
+    dest: "/tmp/harbor-offline-installer-v{{ harbor_version }}.tgz"
+  become: true
+
+- name: Ensure {{ harbor_install_path }} exists
+  file:
+    path: "{{ harbor_install_path }}"
+    state: directory
+  become: true
+
+- name: Extract Harbor installer
+  unarchive:
+    src: "/tmp/harbor-offline-installer-v{{ harbor_version }}.tgz"
+    dest: "/opt"
+    remote_src: true
+  become: true
+
+- name: Ensure {{ harbor_cert_path }} exists
+  file:
+    path: "{{ harbor_cert_path }}"
+    state: directory
+  become: true
+
+- name: Copy cert.pem  to{{ harbor_cert_path }}/{{ harbor_host }}.crt
+  copy:
+    src: cert.pem
+    dest: "{{ harbor_cert_path }}/{{ harbor_host }}.crt"
+  when: harbor_tls_enabled == true
+  become: true
+
+- name: Copy key.pem to {{ harbor_cert_path }}/{{ harbor_host }}.key
+  copy:
+    src: key.pem
+    dest: "{{ harbor_cert_path }}/{{ harbor_host }}.key"
+  when: harbor_tls_enabled == true
+  become: true
+
+- name: Ensure /etc/docker/certs.d/{{ harbor_host }} exists
+  file:
+    path: "/etc/docker/certs.d/{{ harbor_host }}"
+    state: directory
+  become: true
+
+- name: Convert crt.pem to /etc/docker/certs.d/{{ harbor_host }}/{{ harbor_host }}.cert
+  command: openssl x509 -inform PEM -in {{ harbor_cert_path }}/{{ harbor_host }}.crt -out /etc/docker/certs.d/{{ harbor_host }}/{{ harbor_host }}.cert
+  when: harbor_tls_enabled == true
+  become: true
+
+- name: Copy key.pem to /etc/docker/certs.d/{{ harbor_host }}/{{ harbor_host }}.key
+  copy:
+    src: "key.pem"
+    dest: "/etc/docker/certs.d/{{ harbor_host }}/{{ harbor_host }}.key"
+  when: harbor_tls_enabled == true
+  become: true
+
+- name: Copy ca.crt to /etc/docker/certs.d/{{ harbor_host }}/
+  copy:
+    src: "ca.crt"
+    dest: "/etc/docker/certs.d/{{ harbor_host }}/ca.crt"
+  when: harbor_tls_enabled == true
+  become: true
+  notify: Restart Docker service
+
+- name: Copy Harbor configuration file
+  template:
+    src: harbor.yml.j2
+    dest: "{{ harbor_install_path }}/harbor.yml"
+  become: true
+
+- name: Install Harbor
+  command: "{{ harbor_install_path }}/install.sh --with-trivy"
+  become: true
+  notify: Restart Harbor
